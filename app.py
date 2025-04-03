@@ -11,6 +11,7 @@ from cossimilarity import SimilarityCalculator
 from matching import MatchingService
 from interview_scheduler import InterviewScheduler
 from password import send_otp, generate_candidate_id, store_candidate_data
+from threading import Thread
 
 app = Flask(
     __name__,
@@ -24,6 +25,9 @@ otp_storage = {}
 DB_PATH = r"C:\Users\Sudhindra Prakash\Desktop\java project\.venv\Backend\DRDO_Normalized_Updated_Names.db"
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# Global scheduler instance for caching
+scheduler = InterviewScheduler()
 
 def init_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -69,8 +73,12 @@ def init_db():
                     time TEXT
                 )
             """)
+            # Add indexes for optimization
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_interviewee_id ON Interviewee(interviewee_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_interviewee_interests ON Interviewee_Interests(interviewee_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_interview_schedule_interviewer ON interview_schedule(Interviewer_ID, date, time)")
             conn.commit()
-        print("✅ Database initialized successfully.")
+        print("✅ Database initialized with indexes.")
     except sqlite3.Error as e:
         print(f"❌ Error initializing database: {e}")
 
@@ -180,25 +188,20 @@ def expert_dashboard():
             schedule = cursor.fetchall()
         print(f"✅ Loaded schedule for expert {user_id}: {len(schedule)} entries")
 
-        cosine_scores = SimilarityCalculator.compute_similarity()
-        matching_scores = MatchingService.compute_matching_scores()
-        user_cosine_scores = {pair: score for pair, score in cosine_scores.items() if pair[1] == user_id}
-        user_matching_scores = {pair: score for pair, score in matching_scores.items() if pair[1] == user_id}
-
-        schedule_data = []
-        for row in schedule:
-            interviewee_id = row[1]  # Interviewee_ID
-            schedule_data.append({
-                "interviewer_id": row[0],  # Interviewer_ID
-                "interviewee_id": interviewee_id,
-                "date": row[2],  # date
-                "time": row[3],  # time
-                "interviewer_email": row[4],  # Interviewer_Email
-                "interviewee_email": row[5],  # Interviewee_Email
-                "interviewee_name": row[6],  # Actual name from Interviewee table
-                "cosine_score": user_cosine_scores.get((interviewee_id, user_id), 0),
-                "matching_score": user_matching_scores.get((interviewee_id, user_id), 0)
-            })
+        schedule_data = [
+            {
+                "interviewer_id": row[0],
+                "interviewee_id": row[1],
+                "date": row[2],
+                "time": row[3],
+                "interviewer_email": row[4],
+                "interviewee_email": row[5],
+                "interviewee_name": row[6],
+                "cosine_score": scheduler.similarity_scores.get((row[1], user_id), 0),
+                "matching_score": scheduler.matching_scores.get((row[1], user_id), 0)
+            }
+            for row in schedule
+        ]
 
         return render_template('Expert_Dashboard.html', schedule=schedule_data, user_id=user_id)
     except sqlite3.Error as e:
@@ -222,30 +225,34 @@ def candidate_dashboard():
             """, (user_id,))
             schedule = cursor.fetchall()
 
-        cosine_scores = SimilarityCalculator.compute_similarity()
-        matching_scores = MatchingService.compute_matching_scores()
-
-        schedule_data = []
-        for row in schedule:
-            interviewer_id = row[0]
-            cosine_score = cosine_scores.get((user_id, interviewer_id), 0)
-            matching_score = matching_scores.get((user_id, interviewer_id), 0)
-            schedule_data.append({
-                "interviewer_id": interviewer_id,
+        schedule_data = [
+            {
+                "interviewer_id": row[0],
                 "interviewee_id": row[1],
                 "date": row[2],
                 "time": row[3],
                 "interviewer_name": row[4],
                 "interviewer_email": row[5],
-                "cosine_score": cosine_score,
-                "matching_score": matching_score
-            })
+                "cosine_score": scheduler.similarity_scores.get((user_id, row[0]), 0),
+                "matching_score": scheduler.matching_scores.get((user_id, row[0]), 0)
+            }
+            for row in schedule
+        ]
 
         print(f"✅ Loaded schedule for candidate {user_id}: {len(schedule)} entries")
         return render_template('Interviewee_dashboard.html', schedule=schedule_data, user_id=user_id)
     except sqlite3.Error as e:
         print(f"❌ Error loading candidate dashboard: {e}")
         return "Database error", 500
+
+def async_schedule_candidate(user_id):
+    """Run scheduling in a background thread."""
+    try:
+        scheduler.schedule_single_candidate(user_id)
+        scheduler.store_schedule_in_db()
+        print(f"✅ Background scheduling completed for {user_id}")
+    except Exception as e:
+        print(f"❌ Background scheduling failed for {user_id}: {e}")
 
 @app.route('/candidate_signup', methods=['GET', 'POST'])
 def candidate_signup():
@@ -287,10 +294,15 @@ def candidate_signup():
                 )
 
             store_candidate_data(user_id, name, email, phone_number, age, experience, gate_score, core_field)
+
+            # Update scores incrementally and schedule asynchronously
+            scheduler.update_scores_for_candidate(user_id, core_field)
+            Thread(target=async_schedule_candidate, args=(user_id,)).start()
+
             return render_template(
                 'application_result.html',
                 result="success",
-                message=f"Your application has been successfully submitted! Your candidate ID is {user_id}. Please note this ID for login.",
+                message=f"Your application has been submitted! Your candidate ID is {user_id}. Your interview is being scheduled and will be available on your dashboard soon.",
                 candidate_id=user_id
             )
 
@@ -306,7 +318,7 @@ def candidate_signup():
             return render_template(
                 'application_result.html',
                 result="error",
-                message="There was an error processing your resume. Please ensure it's a valid PDF with all required information."
+                message="There was an error processing your resume. Please try again."
             )
 
     return render_template('candidate_signup.html')
@@ -314,9 +326,6 @@ def candidate_signup():
 @app.route('/compute_schedule', methods=['POST'])
 def compute_schedule():
     try:
-        similarity_scores = SimilarityCalculator.compute_similarity()
-        matching_scores = MatchingService.compute_matching_scores()
-        scheduler = InterviewScheduler()
         scheduler.generate_schedule()
         scheduler.store_schedule_in_db()
         print(f"✅ Schedule computed and stored: {len(scheduler.schedule)} interviews")
@@ -338,7 +347,4 @@ def generate_resume():
 
 if __name__ == '__main__':
     init_db()
-    scheduler = InterviewScheduler()
-    scheduler.generate_schedule()
-    scheduler.store_schedule_in_db()
     app.run(debug=True, host='0.0.0.0', port=5000)
