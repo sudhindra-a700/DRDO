@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<!--suppress XmlInvalidId -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candidate Signup</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .signup-container {
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            width: 450px;
+            text-align: center;
+        }
+        .signup-container h2 {
+            margin-bottom: 1.5rem;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .signup-container input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+        .signup-container button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        .signup-container button:hover {
+            background-color: #0056b3;
+        }
+        .pdf-upload-container {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .pdf-upload-container:hover {
+            border-color: #007BFF;
+            background-color: #f0f7ff;
+        }
+        .pdf-upload-container.active {
+            border-color: #28a745;
+            background-color: #f0fff4;
+        }
+        .pdf-filename {
+            margin-top: 10px;
+            font-weight: bold;
+            word-break: break-all;
+        }
+        #file-upload-btn {
+            display: none;
+        }
+        .pdf-preview {
+            width: 100%;
+            height: 400px;
+            border: 1px solid #ccc;
+            margin: 15px 0;
+            display: none;
+        }
+        .back-link {
+            margin-top: 15px;
+        }
+        .back-link a {
+            color: #007BFF;
+            text-decoration: none;
+        }
+        .error-message {
+            color: #dc3545;
+            margin-top: 5px;
+            font-size: 14px;
+        }
+        .success-message {
+            color: #28a745;
+            margin-top: 5px;
+            font-size: 14px;
+        }
+        .upload-icon {
+            font-size: 48px;
+            color: #6c757d;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="signup-container">
+        <h2>Candidate Signup</h2>
+        <form id="signupForm" action="{{ url_for('candidate_signup') }}" method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="phone_number">Phone Number</label>
+                <input type="tel" id="phone_number" name="phone_number" placeholder="Enter 10-digit phone number" required pattern="[0-9]{10}">
+                <div id="phone-error" class="error-message"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="resume">Resume (PDF)</label>
+                <div id="pdf-upload-area" class="pdf-upload-container">
+                    <div class="upload-icon">📄</div>
+                    <p>Click or drag to upload your resume (PDF)</p>
+                    <div id="filename" class="pdf-filename"></div>
+                </div>
+                <input type="file" id="file-upload-btn" name="resume" accept="application/pdf" required>
+                <div id="file-error" class="error-message"></div>
+            </div>
+
+            <!-- PDF Preview Section -->
+            <div class="pdf-preview" id="pdf-preview-container">
+                <iframe id="pdf-preview" width="100%" height="100%"></iframe>
+            </div>
+
+            <div class="form-group">
+                <div id="parsing-status" class="success-message"></div>
+            </div>
+
+            <button type="submit" id="submit-btn">Submit Application</button>
+        </form>
+
+        <div class="back-link">
+            <a href="{{ url_for('login', role='candidate') }}">← Back to Login</a>
+        </div>
+    </div>
+
+    <script>
+        // PDF Upload Handling
+        const uploadArea = document.getElementById('pdf-upload-area');
+        const fileInput = document.getElementById('file-upload-btn');
+        const filenameDisplay = document.getElementById('filename');
+        const pdfPreview = document.getElementById('pdf-preview');
+        const previewContainer = document.getElementById('pdf-preview-container');
+        const fileError = document.getElementById('file-error');
+        const parsingStatus = document.getElementById('parsing-status');
+        const phoneInput = document.getElementById('phone_number');
+        const phoneError = document.getElementById('phone-error');
+        const submitBtn = document.getElementById('submit-btn');
+
+        // Click on upload area to trigger file input
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // Handle drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('active');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('active');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('active');
+
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileChange(e.dataTransfer.files[0]);
+            }
+        });
+
+        // Handle file selection
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                handleFileChange(file);
+            }
+        });
+
+        function handleFileChange(file) {
+            if (file && file.type === 'application/pdf') {
+                filenameDisplay.textContent = file.name;
+                uploadArea.classList.add('active');
+                fileError.textContent = '';
+
+                // Display PDF preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    pdfPreview.src = e.target.result;
+                    previewContainer.style.display = 'block';
+                    parsingStatus.textContent = "Resume uploaded successfully. System will extract your details.";
+                };
+                reader.readAsDataURL(file);
+            } else {
+                fileError.textContent = 'Please upload a PDF file.';
+                filenameDisplay.textContent = '';
+                uploadArea.classList.remove('active');
+                previewContainer.style.display = 'none';
+            }
+        }
+
+        // Phone validation
+        phoneInput.addEventListener('input', function() {
+            const phonePattern = /^\d{10}$/;
+            if (!phonePattern.test(this.value)) {
+                phoneError.textContent = 'Please enter a valid 10-digit phone number';
+            } else {
+                phoneError.textContent = '';
+            }
+        });
+
+        // Form submission
+        document.getElementById('signupForm').addEventListener('submit', function(e) {
+            const phone = phoneInput.value;
+            const file = fileInput.files[0];
+            let hasError = false;
+
+            // Validate phone
+            if (!/^\d{10}$/.test(phone)) {
+                phoneError.textContent = 'Please enter a valid 10-digit phone number';
+                hasError = true;
+            }
+
+            // Validate file
+            if (!file || file.type !== 'application/pdf') {
+                fileError.textContent = 'Please upload a PDF resume';
+                hasError = true;
+            }
+
+            if (hasError) {
+                e.preventDefault();
+            } else {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Processing...';
+                parsingStatus.textContent = 'Uploading and processing your resume. Please wait...';
+            }
+        });
+    </script>
+</body>
+</html>

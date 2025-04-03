@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Expert Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 30px;
+            background-color: #f8f9fa;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        th {
+            background-color: #007BFF;
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.9em;
+        }
+        td {
+            color: #495057;
+        }
+        tr:hover {
+            background-color: #f1f5f9;
+        }
+        .no-schedule {
+            text-align: center;
+            color: #6c757d;
+            margin-top: 30px;
+            font-size: 1.2em;
+            font-style: italic;
+        }
+        .score {
+            font-weight: 500;
+            color: #e67e22;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Expert Dashboard - {{ user_id }}</h1>
+        {% if schedule %}
+            <table>
+                <tr>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Interviewee ID</th>
+                    <th>Interviewee Name</th>
+                    <th>Interviewee Email</th>
+                    <th>Cosine Similarity Score</th>
+                    <th>Matching Score</th>
+                </tr>
+                {% for entry in schedule %}
+                    <tr>
+                        <td>{{ entry.date }}</td>
+                        <td>{{ entry.time }}</td>
+                        <td>{{ entry.interviewee_id }}</td>
+                        <td>{{ entry.interviewee_name }}</td>
+                        <td>{{ entry.interviewee_email }}</td>
+                        <td class="score">{{ entry.cosine_score | round(2) }}</td>
+                        <td class="score">{{ entry.matching_score | round(2) }}</td>
+                    </tr>
+                {% endfor %}
+            </table>
+        {% else %}
+            <p class="no-schedule">No interviews scheduled at this time.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

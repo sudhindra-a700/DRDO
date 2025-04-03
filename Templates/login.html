@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Login Page</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .login-block {
+            display: none;
+            width: 350px;
+            padding: 20px;
+            border-radius: 10px;
+            background-color: #f9f9f9;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .login-block.active {
+            display: block;
+        }
+
+        .login-block h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .login-block input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        .login-block button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .login-block button:hover {
+            background-color: #0056b3;
+        }
+
+        .register-text {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+            color: #666;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .register-text:hover {
+            color: #333;
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .back-link a {
+            text-decoration: none;
+            color: #138808;
+            font-weight: bold;
+        }
+
+        .back-link a:hover {
+            color: #007BFF;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Expert Login Block -->
+    <div class="login-block" id="expertBlock">
+        <h2>Expert Login</h2>
+        <form id="expertLoginForm" action="{{ url_for('login') }}" method="POST">
+            <input type="text" id="expertID" name="user_id" placeholder="Enter Expert ID" required>
+            <input type="tel" id="expertPhone" name="phone_number" placeholder="Enter Phone Number" required>
+            <input type="hidden" name="role" value="expert">
+            <button type="submit">Login as Expert</button>
+        </form>
+    </div>
+
+    <!-- Interviewee Login Block -->
+    <div class="login-block" id="intervieweeBlock">
+        <h2>Interviewee Login</h2>
+        <form id="intervieweeLoginForm" action="{{ url_for('login') }}" method="POST">
+            <input type="text" id="intervieweeID" name="user_id" placeholder="Enter Interviewee ID" required>
+            <input type="tel" id="intervieweePhone" name="phone_number" placeholder="Enter Phone Number" required>
+            <input type="hidden" name="role" value="candidate">
+            <button type="submit">Login as Interviewee</button>
+        </form>
+
+        <div class="register-text">
+            Not registered? <a href="{{ url_for('candidate_signup') }}">Go here →</a>
+        </div>
+    </div>
+</div>
+
+<div class="back-link">
+    <a href="{{ url_for('home') }}">← Back to Home</a>
+</div>
+
+<script>
+    // Get the role from URL parameter
+    const params = new URLSearchParams(window.location.search);
+    const role = params.get('role');
+
+    const expertBlock = document.getElementById('expertBlock');
+    const intervieweeBlock = document.getElementById('intervieweeBlock');
+
+    // Show the correct block based on the role
+    if (role === 'expert') {
+        expertBlock.classList.add('active');
+    } else if (role === 'candidate') {
+        intervieweeBlock.classList.add('active');
+    } else {
+        document.body.innerHTML += '<p style="text-align:center; color:red;">Invalid Access. Go <a href="{{ url_for('home') }}">Home</a></p>';
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application Result</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .result-container {
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            width: 450px;
+            text-align: center;
+        }
+        .success-icon {
+            font-size: 64px;
+            color: #28a745;
+            margin-bottom: 20px;
+        }
+        .error-icon {
+            font-size: 64px;
+            color: #dc3545;
+            margin-bottom: 20px;
+        }
+        .warning-icon {
+            font-size: 64px;
+            color: #ffc107;
+            margin-bottom: 20px;
+        }
+        h2 {
+            margin-bottom: 1rem;
+            color: #333;
+        }
+        .message {
+            margin-bottom: 20px;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        .candidate-id {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007BFF;
+            padding: 10px;
+            border: 1px dashed #007BFF;
+            background-color: #f0f7ff;
+            display: inline-block;
+            margin: 10px 0 20px;
+        }
+        .action-button {
+            padding: 12px 24px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .action-button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="result-container">
+        {% if result == "success" %}
+            <div class="success-icon">✅</div>
+            <h2>Application Successful!</h2>
+            <p class="message">{{ message }}</p>
+
+            {% if candidate_id %}
+            <div>
+                <p>Your Candidate ID is:</p>
+                <div class="candidate-id">{{ candidate_id }}</div>
+                <p>Please save this ID for future logins</p>
+            </div>
+            {% endif %}
+
+            <a href="{{ url_for('login', role='candidate') }}" class="action-button">Go to Login</a>
+
+        {% elif result == "not_eligible" %}
+            <div class="warning-icon">⚠️</div>
+            <h2>Not Eligible</h2>
+            <p class="message">{{ message }}</p>
+
+            {% if gate_score %}
+            <p>Your GATE score: {{ gate_score }}</p>
+            <p>Minimum required: 1150</p>
+            {% endif %}
+
+            <a href="{{ url_for('home') }}" class="action-button">Back to Home</a>
+
+        {% else %}
+            <div class="error-icon">❌</div>
+            <h2>Application Error</h2>
+            <p class="message">{{ message }}</p>
+            <a href="{{ url_for('candidate_signup') }}" class="action-button">Try Again</a>
+        {% endif %}
+    </div>
+</body>
+</html>
