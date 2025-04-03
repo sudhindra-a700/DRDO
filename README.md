@@ -82,9 +82,3 @@ The model generates a list of interviewee-interviewer matches with compatibility
 ## Requirements
 - Python 3.x
 - Libraries: `numpy`, `scikit-learn`, `pandas` (see `requirements.txt`).
-
-## License
-© 2025 Sudhindra A700. All rights reserved.
-
-## Feedback
-We’d love to hear from you! Open an issue or submit a pull request with your thoughts or improvements.
